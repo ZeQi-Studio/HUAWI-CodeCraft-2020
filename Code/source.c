@@ -4,7 +4,7 @@
 
 
 #define MAP_FILENAME  "./Data/3738/test_data.txt"
-#define RESULT_FILENAME  "./Output/my_result.txt"
+#define RESULT_FILENAME  "my_result.txt"
 #define MAXV 1000000
 #define MAX_PATH_LENGTH 7
 #define THREAD_NUMBER 8
@@ -42,12 +42,6 @@ void DispAdj(AdjGraph *G);
 void print_path();
 
 void write_path(const char *filename);
-
-
-path_info my_path[MAXV];
-int temp_path[MAX_PATH_LENGTH];
-int path_lenth = 0;
-int my_path_lenth = 0;
 
 int main(void) {
     // memory test area
@@ -119,36 +113,48 @@ AdjGraph *creatAdj(const char *filename) {
     return G;
 }
 
-
 // mark visited
 int visited[MAXV] = {0};
-void DFS(AdjGraph *G, int v, const int start) {
 
-    ArcNode *p;
-    int w;
-    visited[v] = 1;        //置已访问标记
-    p = G->adj_list[v].first_arc;        //p指向顶点v的第一条边的边头结点
-    temp_path[path_lenth] = v;
-    path_lenth++;
+path_info my_path[MAXV];
+int temp_path[MAX_PATH_LENGTH];
+int path_lenth = 0;
+int my_path_lenth = 0;
+
+void DFS(AdjGraph *G, int v, const int start) {
+    ArcNode *p; // floating pointer
+    int w;  // temp to store the current node index
+
+    visited[v] = 1;        // mark visited
+    p = G->adj_list[v].first_arc;        // pointer to the edge link list
+
+    temp_path[path_lenth] = v;  // write current node to the path
+    path_lenth++;   // increase path length
 
     while (p != NULL) {
         w = p->adj_vex; // outbound index number
 
         // find a ring
         if (w == start && path_lenth > 2) {
+            // copy path to the output: dest, src
             memcpy(my_path[my_path_lenth].path, temp_path, sizeof(int) * path_lenth);
-            my_path[my_path_lenth].num = path_lenth;
-            my_path_lenth++;
+            my_path[my_path_lenth].num = path_lenth;    // set the path length
+            my_path_lenth++;    // mark the total number of path
+
             printf("acc\n");
         }
+
+        // TODO: could change temp_path[0] -> start ?
         if (visited[w] == 0 && w > temp_path[0] && path_lenth < 7)
-            DFS(G, w, start);    //若w顶点未访问，递归访问它
-        p = p->next_arc;      //p指向顶点v的下一条边的边头结点
+            DFS(G, w, start);    // recursion
+
+        p = p->next_arc;      // next
     }
 
-    visited[v] = 0;
-    temp_path[path_lenth] = 0;
-    path_lenth--;
+    // exit recursion
+    visited[v] = 0; // clear mark
+    temp_path[path_lenth] = 0;  // clear path
+    path_lenth--;   // decrease path length
 }
 
 
@@ -193,7 +199,7 @@ void write_path(const char *filename) {
                         fprintf(path_file, ",%d", my_path[i].path[j]);
                     }
                 }
-                fprintf(path_file,  "\n");
+                fprintf(path_file, "\n");
             }
         }
     }
