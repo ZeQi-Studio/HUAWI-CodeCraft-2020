@@ -33,7 +33,8 @@ typedef struct path_info {
 } path_info;
 
 
-void DFS(AdjGraph *G, int v, int start);
+void DFS(AdjGraph *G, int v, int start, \
+        int path_length, int *my_path_length, path_info my_path[], int *temp_path, int visited[]);
 
 AdjGraph *creatAdj(const char *filename);
 
@@ -73,7 +74,8 @@ int main(void) {
 
     for (int i = 0; i <= G->n; i++) {
         //printf("Searching node %d\n", i);
-        DFS(G, i, i);
+        DFS(G, i, i,
+                0,NULL,NULL,NULL,NULL);
     }
 //    start = 1;
 //    DFS(G, 1);
@@ -113,48 +115,54 @@ AdjGraph *creatAdj(const char *filename) {
     return G;
 }
 
-// mark visited
-int visited[MAXV] = {0};
+void DFS(AdjGraph *G, int v, const int start, \
+        int path_length, int *my_path_length, path_info my_path[], int *temp_path, int visited[]) {
 
-path_info my_path[MAXV];
-int temp_path[MAX_PATH_LENGTH];
-int path_lenth = 0;
-int my_path_lenth = 0;
+//    int my_path_lenth = 0;
+//    path_info my_path[MAXV];
+//    int temp_path[MAX_PATH_LENGTH];
+//    int visited[MAXV] = {0};    // mark visited
+    if (path_length == 0) {
+        my_path_length = (int *) malloc(sizeof(int));
+        my_path = (path_info *) malloc(sizeof(path_info) * MAXV);
+        temp_path = (int *) malloc(sizeof(int)*MAX_PATH_LENGTH);
+        visited = (int *)malloc(sizeof(int)*MAXV);
+    }
 
-void DFS(AdjGraph *G, int v, const int start) {
     ArcNode *p; // floating pointer
     int w;  // temp to store the current node index
 
     visited[v] = 1;        // mark visited
     p = G->adj_list[v].first_arc;        // pointer to the edge link list
 
-    temp_path[path_lenth] = v;  // write current node to the path
-    path_lenth++;   // increase path length
+    temp_path[path_length] = v;  // write current node to the path
+    path_length++;   // increase path length
 
     while (p != NULL) {
         w = p->adj_vex; // outbound index number
 
         // find a ring
-        if (w == start && path_lenth > 2) {
+        if (w == start && path_length > 2) {
             // copy path to the output: dest, src
-            memcpy(my_path[my_path_lenth].path, temp_path, sizeof(int) * path_lenth);
-            my_path[my_path_lenth].num = path_lenth;    // set the path length
-            my_path_lenth++;    // mark the total number of path
+            memcpy(my_path[*my_path_length].path, temp_path, sizeof(int) * path_length);
+            my_path[*my_path_length].num = path_length;    // set the path length
+            (*my_path_length)++;    // mark the total number of path
 
             printf("acc\n");
         }
 
         // TODO: could change temp_path[0] -> start ?
-        if (visited[w] == 0 && w > temp_path[0] && path_lenth < 7)
-            DFS(G, w, start);    // recursion
+        if (visited[w] == 0 && w > temp_path[0] && path_length < 7)
+            DFS(G, w, start,
+                    path_length,my_path_length,my_path,temp_path,visited);    // recursion
 
         p = p->next_arc;      // next
     }
 
     // exit recursion
     visited[v] = 0; // clear mark
-    temp_path[path_lenth] = 0;  // clear path
-    path_lenth--;   // decrease path length
+    temp_path[path_length] = 0;  // clear path
+    path_length--;   // decrease path length
 }
 
 
@@ -174,33 +182,33 @@ void DispAdj(AdjGraph *G)    //输出邻接表G
 }
 
 void print_path() {
-    int i;
-    for (i = 0; i < my_path_lenth; i++) {
-        int j;
-        for (j = 0; j < my_path[i].num; j++) {
-            printf("%d->", my_path[i].path[j]);
-        }
-        printf("\n");
-    }
+//    int i;
+//    for (i = 0; i < my_path_lenth; i++) {
+//        int j;
+//        for (j = 0; j < my_path[i].num; j++) {
+//            printf("%d->", my_path[i].path[j]);
+//        }
+//        printf("\n");
+//    }
 }
 
 void write_path(const char *filename) {
-    FILE *path_file;
-    path_file = fopen(filename, "w");
-    fprintf(path_file, "%d\n", my_path_lenth);
-    int i, j, k;
-    for (k = 3; k <= MAX_PATH_LENGTH; k++) {
-        for (i = 0; i < my_path_lenth; i++) {
-            if (my_path[i].num == k) {
-                for (j = 0; j < my_path[i].num; j++) {
-                    if (j == 0) {
-                        fprintf(path_file, "%d", my_path[i].path[j]);
-                    } else {
-                        fprintf(path_file, ",%d", my_path[i].path[j]);
-                    }
-                }
-                fprintf(path_file, "\n");
-            }
-        }
-    }
+//    FILE *path_file;
+//    path_file = fopen(filename, "w");
+//    fprintf(path_file, "%d\n", my_path_lenth);
+//    int i, j, k;
+//    for (k = 3; k <= MAX_PATH_LENGTH; k++) {
+//        for (i = 0; i < my_path_lenth; i++) {
+//            if (my_path[i].num == k) {
+//                for (j = 0; j < my_path[i].num; j++) {
+//                    if (j == 0) {
+//                        fprintf(path_file, "%d", my_path[i].path[j]);
+//                    } else {
+//                        fprintf(path_file, ",%d", my_path[i].path[j]);
+//                    }
+//                }
+//                fprintf(path_file, "\n");
+//            }
+//        }
+//    }
 }
