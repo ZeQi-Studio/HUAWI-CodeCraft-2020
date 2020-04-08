@@ -1,0 +1,8 @@
+参考网址：
+代码：
+https://paste.ubuntu.com/p/3gBwyNbw2w/
+优化：
+https://zhuanlan.zhihu.com/p/125764650
+思路：
+Detect Cycle in a directed graph：https://www.geeksforgeeks.org/detect-cycle-in-a-graph/
+Detect Cycle in a directed graph using colors：https://www.geeksforgeeks.org/detect-cycle-direct-graph-using-colors/
