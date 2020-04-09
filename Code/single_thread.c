@@ -55,9 +55,6 @@ int temp_path[MAX_PATH_LENGTH];
 int path_lenth = 0;
 
 int main(void) {
-    clock_t start_time,stop_time;
-    double time_cost;
-    start_time = clock();
     // memory test area
 #define MEMORY_TEST_OFF // switch
 #ifdef MEMORY_TEST_ON
@@ -97,11 +94,6 @@ int main(void) {
     }
     bubble_sort_path();
     write_path(RESULT_FILENAME);
-    stop_time = clock();
-    time_cost = (double)(stop_time-start_time)/CLK_TCK;
-    FILE* time_file = fopen("time.txt","w");
-    fprintf(time_file,"%f",time_cost);
-    fclose(time_file);
     return 0;
 }
 
@@ -134,6 +126,7 @@ AdjGraph *creatAdj(const char *filename) {
             G->n = i;
         }
     }
+    fclose(map_file); 
     return G;
 }
 
@@ -206,6 +199,7 @@ void write_path(const char *filename) {
             fprintf(path_file,"\n");
         }
     }
+    fclose(path_file);
 }
 void bubble_sort_path(){
     int i,j,k;
