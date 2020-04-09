@@ -5,11 +5,11 @@
 #include <zconf.h>
 #include <sys/time.h>
 
-#define MAP_FILENAME  "./Data/280000/test_data.txt"
+#define MAP_FILENAME  "./Data/1004812/test_data.txt"
 #define RESULT_FILENAME  "my_result.txt"
-#define MAXV 1000000
+#define MAXV 2000000
 #define MAX_PATH_LENGTH 7
-#define THREAD_NUMBER 7
+#define THREAD_NUMBER 10
 #define SLICE ((int)(G->n / THREAD_NUMBER) + 1)
 
 #define MEMORY_TEST_OFF // switch
@@ -18,7 +18,7 @@
 typedef struct ArcNode {
     int adj_vex;    // out bound of vec
     struct ArcNode *next_arc;  // next vec
-}/*__attribute__((packed))*/ ArcNode;
+} ArcNode;
 
 typedef struct Vnode {
     int data;               // unused node info
@@ -29,7 +29,7 @@ typedef struct Vnode {
 typedef struct AdjGraph {
     int n;      // count node number
     int e;      // count edge number
-    VNode adj_list[MAXV+10];    // node list
+    VNode adj_list[MAXV + 10];    // node list
 } AdjGraph;
 
 // path_info
@@ -63,7 +63,6 @@ void write_path(const char *filename, mixed_path_result result);
 
 void merge_mixed_path_result(mixed_path_result *src, mixed_path_result *dest);
 
-
 void *multi_thread_dfs(void *msg_raw) {
     thread_info *msg = (struct thread_info *) msg_raw;
 
@@ -77,11 +76,20 @@ void *multi_thread_dfs(void *msg_raw) {
         exit(EXIT_FAILURE);
     }
 
-    for (int i = msg->start; i < msg->end; i++) {
-        DFS(msg->G, i, i,
-            0, &my_path_length, my_path, temp_path, visited);
+//    for (int i = msg->start; i < msg->end; i++) {
+//        DFS(msg->G, i, i,
+//            0, &my_path_length, my_path, temp_path, visited);
+//    }
+    int start = msg->start;
+    int end = msg->end;
+    while ((start - 1) < msg->G->n) {
+        for (int i = start - 1; i < min(end - 1, msg->G->n); i++) {
+            //printf("%d\n",i);
+            DFS(msg->G, i, i, 0, &my_path_length, my_path, temp_path, visited);
+        }
+        start *= THREAD_NUMBER;
+        end *= THREAD_NUMBER;
     }
-
     return_temp->num_of_path = my_path_length;
     return_temp->path_list = my_path;
     free(msg_raw);
@@ -117,15 +125,14 @@ int main(void) {
 
     AdjGraph *G;
     G = creatAdj(MAP_FILENAME);
-    pthread_t thread_list[THREAD_NUMBER];
+    pthread_t thread_list[THREAD_NUMBER - 1];
 
-    for (int i = 0; i < THREAD_NUMBER; i++) {
+    for (int i = 0; i < THREAD_NUMBER - 1; i++) {
         thread_info *current_msg = (thread_info *) malloc(sizeof(thread_info));
-        current_msg->start = i * SLICE;
-        current_msg->end = min(G->n, (i + 1) * SLICE);
+        current_msg->start = i + 1;
+        current_msg->end = i + 2;
         current_msg->G = G;
 
-        // preview the start and end of slice
 #ifdef DEBUG_OUTPUT_ON
         printf("%d %d\n", current_msg->start, current_msg->end);
 #endif
@@ -136,7 +143,7 @@ int main(void) {
     mixed_path_result all_ring;
     all_ring.num_of_path = 0;
     all_ring.path_list = (path_info *) malloc(sizeof(path_info) * MAXV);
-    for (int i = 0; i < THREAD_NUMBER; i++) {
+    for (int i = 0; i < THREAD_NUMBER - 1; i++) {
         void *return_raw;
         pthread_join(thread_list[i], &return_raw);
         mixed_path_result *ring_of_current_node = (mixed_path_result *) return_raw;
