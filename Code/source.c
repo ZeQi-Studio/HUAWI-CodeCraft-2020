@@ -2,13 +2,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
-#include <math.h>
+#include <zconf.h>
+#include <sys/time.h>
 
-#define MAP_FILENAME  "./Data/54/test_data.txt"
+#define MAP_FILENAME  "./Data/280000/test_data.txt"
 #define RESULT_FILENAME  "my_result.txt"
 #define MAXV 1000000
 #define MAX_PATH_LENGTH 7
-#define THREAD_NUMBER 1
+#define THREAD_NUMBER 32
 #define SLICE ((int)(G->n / THREAD_NUMBER) + 1)
 
 typedef struct ArcNode {
@@ -59,24 +60,40 @@ void write_path(const char *filename, mixed_path_result result);
 
 void merge_mixed_path_result(mixed_path_result *src, mixed_path_result *dest);
 
+
 void *multi_thread_dfs(void *msg_raw) {
     thread_info *msg = (struct thread_info *) msg_raw;
 
-    mixed_path_result *all_ring = (mixed_path_result *) malloc(sizeof(mixed_path_result));
-    all_ring->num_of_path = 0;
-    all_ring->path_list = (path_info *) malloc(sizeof(path_info) * MAXV);
-
-    int * visited = (int *) calloc(MAXV , sizeof(int));
+    //mixed_path_result all_ring;
+    //all_ring.num_of_path = 0;
+    //all_ring.path_list = (path_info *) malloc(sizeof(path_info) * MAXV);
+    int visited[MAXV] = {0};
+    int *temp_path = (int *) malloc((MAX_PATH_LENGTH + 100) * sizeof(int));
+    int my_path_length = 0;
+    path_info *my_path = (path_info *) malloc(sizeof(path_info) * MAXV);
+    mixed_path_result *return_temp = (mixed_path_result *) malloc(sizeof(mixed_path_result));
+    if (my_path == NULL) {
+        printf("Allocate memory failed.\n");
+        exit(EXIT_FAILURE);
+    }
 
     for (int i = msg->start; i < msg->end; i++) {
         //printf("Searching node %d\n", i);
-        mixed_path_result *ring_of_current_node = \
+//        mixed_path_result *ring_of_current_node =
         DFS(msg->G, i, i,
-            0, NULL, NULL, NULL, visited);
-        merge_mixed_path_result(ring_of_current_node, all_ring);
+            0, &my_path_length, my_path, temp_path, visited);
+        //merge_mixed_path_result(ring_of_current_node, &all_ring);
     }
 
-    return all_ring;
+
+//    if (return_temp == NULL) {
+//        printf("Allocate memory failed.\n");
+//        exit(EXIT_FAILURE);
+//    }
+    return_temp->num_of_path = my_path_length;
+    return_temp->path_list = my_path;
+    free(msg_raw);
+    return return_temp;
 }
 
 int main(void) {
@@ -102,6 +119,9 @@ int main(void) {
     //exit(EXIT_SUCCESS);
 #endif
 
+    // timer start
+    struct timeval start_time, end_time;
+    gettimeofday(&start_time, 0);
 
     AdjGraph *G;
     // G = (AdjGraph *) malloc(sizeof(AdjGraph));   // useless `malloc`
@@ -113,6 +133,8 @@ int main(void) {
         current_msg->start = i * SLICE;
         current_msg->end = min(G->n, (i + 1) * SLICE);
         current_msg->G = G;
+
+        // preview the start and end of slice
         printf("%d %d\n", current_msg->start, current_msg->end);
 
         pthread_create(thread_list + i, NULL, multi_thread_dfs, current_msg);
@@ -130,6 +152,10 @@ int main(void) {
 
 
     write_path(RESULT_FILENAME, all_ring);
+
+    gettimeofday(&end_time, 0);
+    double time_use = 1000000 * (end_time.tv_sec - start_time.tv_sec) + end_time.tv_usec - start_time.tv_usec;
+    printf("Time: %lf s\n", (double) (time_use) / 1000000);
 
     return 0;
 }
@@ -168,18 +194,6 @@ AdjGraph *creatAdj(const char *filename) {
 mixed_path_result *DFS(AdjGraph *G, int v, const int start, \
         int path_length, int *my_path_length, path_info my_path[], int *temp_path, int visited[]) {
 
-//    int my_path_lenth = 0;
-//    path_info my_path[MAXV];
-//    int temp_path[MAX_PATH_LENGTH];
-//    int visited[MAXV] = {0};    // mark visited
-    // TODO: free all these located memory, especially `my_path`
-    if (path_length == 0) {
-        // store all the result
-        my_path_length = (int *) malloc(sizeof(int));
-        (*my_path_length) = 0;
-        my_path = (path_info *) malloc(sizeof(path_info) * 100);
-        temp_path = (int *) malloc(sizeof(int) * MAX_PATH_LENGTH);
-    }
 
     ArcNode *p; // floating pointer
     int w;  // temp to store the current node index
@@ -200,7 +214,7 @@ mixed_path_result *DFS(AdjGraph *G, int v, const int start, \
             my_path[*my_path_length].num = path_length;    // set the path length
             (*my_path_length)++;    // mark the total number of path
 
-            printf("acc\n");
+            //printf(".");
         }
 
         // TODO: could change temp_path[0] -> start ?
@@ -218,17 +232,15 @@ mixed_path_result *DFS(AdjGraph *G, int v, const int start, \
     path_length--;   // decrease path length
 
     // generate the return info
-    if (path_length == 0) {
-        // TODO: free the memory located for mixed_path_result
-        mixed_path_result *temp = (mixed_path_result *) malloc(sizeof(mixed_path_result));
-        temp->num_of_path = *my_path_length;
-        temp->path_list = my_path;
-
-        free(temp_path);
-
-        return temp;
-    } else
-        return NULL;
+//    if (path_length == 0) {
+//        // TODO: free the memory located for mixed_path_result
+//        mixed_path_result *temp = (mixed_path_result *) malloc(sizeof(mixed_path_result));
+//        temp->num_of_path = *my_path_length;
+//        temp->path_list = my_path;
+//
+//        return temp;
+//    } else
+    return NULL;
 }
 
 
@@ -238,7 +250,7 @@ void merge_mixed_path_result(mixed_path_result *src, mixed_path_result *dest) {
         memcpy(dest->path_list + base + i, src->path_list + i, sizeof(path_info));
     }
     free(src->path_list);
-    free(src);
+    //free(src);
     dest->num_of_path += src->num_of_path;
 }
 
