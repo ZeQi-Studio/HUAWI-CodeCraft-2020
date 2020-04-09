@@ -78,18 +78,6 @@ void *multi_thread_dfs(void *msg_raw) {
         exit(EXIT_FAILURE);
     }
 
-
-//    int start = msg->start;
-//    int end = msg->end;
-//
-//    while ((start - 1) < msg->G->n) {
-//        for (int i = start - 1; i < min(end - 1, msg->G->n); i++) {
-//            //printf("%d\n",i);
-//            DFS(msg->G, i, i, 0, &my_path_length, my_path, temp_path, visited);
-//        }
-//        start *= THREAD_NUMBER;
-//        end *= THREAD_NUMBER;
-//    }
     int current_node;
     while (1) {
         pthread_mutex_lock(&count_lock);
@@ -108,6 +96,25 @@ void *multi_thread_dfs(void *msg_raw) {
         }
 
     }
+}
+
+int compare_function(const void *a, const void *b) {
+    path_info *c = (path_info *) a;
+    path_info *d = (path_info *) b;
+
+    if (c->num < d->num)
+        return -1;
+    else if (c->num > d->num)
+        return 1;
+    else{
+        for(int i=0;i<c->num;i++){
+            if (c->path[i]>d->path[i])
+                return 1;
+            else if (c->path[i]<d->path[i])
+                return -1;
+        }
+    }
+
 }
 
 int main(void) {
@@ -159,6 +166,7 @@ int main(void) {
         merge_mixed_path_result(ring_of_current_node, &all_ring);
     }
 
+    qsort(all_ring.path_list, all_ring.num_of_path, sizeof(path_info), compare_function);
 
     write_path(RESULT_FILENAME, all_ring);
 
@@ -276,3 +284,5 @@ void write_path(const char *filename, mixed_path_result result) {
         }
     }
 }
+
+
