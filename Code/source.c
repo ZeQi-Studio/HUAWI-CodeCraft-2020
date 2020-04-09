@@ -1,13 +1,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
+#include <math.h>
 
-
-#define MAP_FILENAME  "./Data/Official_data/test_data.txt"
+#define MAP_FILENAME  "./Data/54/test_data.txt"
 #define RESULT_FILENAME  "my_result.txt"
 #define MAXV 1000000
 #define MAX_PATH_LENGTH 7
-#define THREAD_NUMBER 8
+#define THREAD_NUMBER 1
+#define SLICE ((int)(G->n / THREAD_NUMBER) + 1)
 
 typedef struct ArcNode {
     unsigned int adj_vex;    // out bound of vec
@@ -38,18 +40,44 @@ typedef struct mixed_path_result {
     path_info *path_list;
 } mixed_path_result;
 
+typedef struct thread_info {
+    AdjGraph *G;
+    int start;
+    int end;
+} thread_info;
+
+int min(int a, int b) {
+    return a < b ? a : b;
+}
+
 mixed_path_result *DFS(AdjGraph *G, int v, int start, \
         int path_length, int *my_path_length, path_info my_path[], int *temp_path, int visited[]);
 
 AdjGraph *creatAdj(const char *filename);
 
-void DispAdj(AdjGraph *G);
-
-void print_path();
-
 void write_path(const char *filename, mixed_path_result result);
 
 void merge_mixed_path_result(mixed_path_result *src, mixed_path_result *dest);
+
+void *multi_thread_dfs(void *msg_raw) {
+    thread_info *msg = (struct thread_info *) msg_raw;
+
+    mixed_path_result *all_ring = (mixed_path_result *) malloc(sizeof(mixed_path_result));
+    all_ring->num_of_path = 0;
+    all_ring->path_list = (path_info *) malloc(sizeof(path_info) * MAXV);
+
+    int * visited = (int *) calloc(MAXV , sizeof(int));
+
+    for (int i = msg->start; i < msg->end; i++) {
+        //printf("Searching node %d\n", i);
+        mixed_path_result *ring_of_current_node = \
+        DFS(msg->G, i, i,
+            0, NULL, NULL, NULL, visited);
+        merge_mixed_path_result(ring_of_current_node, all_ring);
+    }
+
+    return all_ring;
+}
 
 int main(void) {
     // memory test area
@@ -78,20 +106,29 @@ int main(void) {
     AdjGraph *G;
     // G = (AdjGraph *) malloc(sizeof(AdjGraph));   // useless `malloc`
     G = creatAdj(MAP_FILENAME);
+    pthread_t thread_list[THREAD_NUMBER];
 
-    mixed_path_result all_ring = {
-            0,
-            (path_info *) malloc(sizeof(path_info) * MAXV)
-    };
-    for (int i = 0; i <= G->n; i++) {
-        //printf("Searching node %d\n", i);
-        mixed_path_result *ring_of_current_node = \
-        DFS(G, i, i,
-            0, NULL, NULL, NULL, NULL);
+    for (int i = 0; i < THREAD_NUMBER; i++) {
+        thread_info *current_msg = (thread_info *) malloc(sizeof(thread_info));
+        current_msg->start = i * SLICE;
+        current_msg->end = min(G->n, (i + 1) * SLICE);
+        current_msg->G = G;
+        printf("%d %d\n", current_msg->start, current_msg->end);
+
+        pthread_create(thread_list + i, NULL, multi_thread_dfs, current_msg);
+    }
+
+    mixed_path_result all_ring;
+    all_ring.num_of_path = 0;
+    all_ring.path_list = (path_info *) malloc(sizeof(path_info) * MAXV);
+    for (int i = 0; i < THREAD_NUMBER; i++) {
+        void *return_raw;
+        pthread_join(thread_list[i], &return_raw);
+        mixed_path_result *ring_of_current_node = (mixed_path_result *) return_raw;
         merge_mixed_path_result(ring_of_current_node, &all_ring);
     }
-//    start = 1;
-//    DFS(G, 1);
+
+
     write_path(RESULT_FILENAME, all_ring);
 
     return 0;
@@ -139,10 +176,9 @@ mixed_path_result *DFS(AdjGraph *G, int v, const int start, \
     if (path_length == 0) {
         // store all the result
         my_path_length = (int *) malloc(sizeof(int));
-        my_path = (path_info *) malloc(sizeof(path_info) * MAXV);
-
+        (*my_path_length) = 0;
+        my_path = (path_info *) malloc(sizeof(path_info) * 100);
         temp_path = (int *) malloc(sizeof(int) * MAX_PATH_LENGTH);
-        visited = (int *) malloc(sizeof(int) * MAXV);
     }
 
     ArcNode *p; // floating pointer
@@ -187,6 +223,9 @@ mixed_path_result *DFS(AdjGraph *G, int v, const int start, \
         mixed_path_result *temp = (mixed_path_result *) malloc(sizeof(mixed_path_result));
         temp->num_of_path = *my_path_length;
         temp->path_list = my_path;
+
+        free(temp_path);
+
         return temp;
     } else
         return NULL;
@@ -198,34 +237,9 @@ void merge_mixed_path_result(mixed_path_result *src, mixed_path_result *dest) {
     for (int i = 0; i < src->num_of_path; i++) {
         memcpy(dest->path_list + base + i, src->path_list + i, sizeof(path_info));
     }
+    free(src->path_list);
+    free(src);
     dest->num_of_path += src->num_of_path;
-}
-
-
-void DispAdj(AdjGraph *G)    //输出邻接表G
-{
-    int i;
-    ArcNode *p;
-    for (i = 0; i <= G->n; i++) {
-        p = G->adj_list[i].first_arc;
-        printf("%d: ", i);
-        while (p != NULL) {
-            printf("%3d→", p->adj_vex);
-            p = p->next_arc;
-        }
-        printf("end\n");
-    }
-}
-
-void print_path() {
-//    int i;
-//    for (i = 0; i < my_path_lenth; i++) {
-//        int j;
-//        for (j = 0; j < my_path[i].num; j++) {
-//            printf("%d->", my_path[i].path[j]);
-//        }
-//        printf("\n");
-//    }
 }
 
 void write_path(const char *filename, mixed_path_result result) {
