@@ -138,7 +138,7 @@ int main(void) {
 
     AdjGraph *G;
     G = creatAdj(MAP_FILENAME);
-    pthread_t thread_list[THREAD_NUMBER - 1];
+    pthread_t thread_list[THREAD_NUMBER];
 
     pthread_mutex_init(&count_lock, NULL);
     for (int i = 0; i < THREAD_NUMBER; i++) {
