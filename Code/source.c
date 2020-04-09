@@ -9,11 +9,14 @@
 #define RESULT_FILENAME  "my_result.txt"
 #define MAXV 1000000
 #define MAX_PATH_LENGTH 7
-#define THREAD_NUMBER 32
+#define THREAD_NUMBER 7
 #define SLICE ((int)(G->n / THREAD_NUMBER) + 1)
 
+#define MEMORY_TEST_OFF // switch
+#define DEBUG_OUTPUT_OFF
+
 typedef struct ArcNode {
-    unsigned int adj_vex;    // out bound of vec
+    int adj_vex;    // out bound of vec
     struct ArcNode *next_arc;  // next vec
 }/*__attribute__((packed))*/ ArcNode;
 
@@ -26,13 +29,13 @@ typedef struct Vnode {
 typedef struct AdjGraph {
     int n;      // count node number
     int e;      // count edge number
-    VNode adj_list[MAXV];    // node list
+    VNode adj_list[MAXV+10];    // node list
 } AdjGraph;
 
 // path_info
 typedef struct path_info {
     int num;
-    int path[MAX_PATH_LENGTH];
+    int path[MAX_PATH_LENGTH + 2];
 } path_info;
 
 // path info + length
@@ -64,11 +67,8 @@ void merge_mixed_path_result(mixed_path_result *src, mixed_path_result *dest);
 void *multi_thread_dfs(void *msg_raw) {
     thread_info *msg = (struct thread_info *) msg_raw;
 
-    //mixed_path_result all_ring;
-    //all_ring.num_of_path = 0;
-    //all_ring.path_list = (path_info *) malloc(sizeof(path_info) * MAXV);
     int visited[MAXV] = {0};
-    int *temp_path = (int *) malloc((MAX_PATH_LENGTH + 100) * sizeof(int));
+    int *temp_path = (int *) malloc((MAX_PATH_LENGTH + 10) * sizeof(int));
     int my_path_length = 0;
     path_info *my_path = (path_info *) malloc(sizeof(path_info) * MAXV);
     mixed_path_result *return_temp = (mixed_path_result *) malloc(sizeof(mixed_path_result));
@@ -78,27 +78,19 @@ void *multi_thread_dfs(void *msg_raw) {
     }
 
     for (int i = msg->start; i < msg->end; i++) {
-        //printf("Searching node %d\n", i);
-//        mixed_path_result *ring_of_current_node =
         DFS(msg->G, i, i,
             0, &my_path_length, my_path, temp_path, visited);
-        //merge_mixed_path_result(ring_of_current_node, &all_ring);
     }
 
-
-//    if (return_temp == NULL) {
-//        printf("Allocate memory failed.\n");
-//        exit(EXIT_FAILURE);
-//    }
     return_temp->num_of_path = my_path_length;
     return_temp->path_list = my_path;
     free(msg_raw);
+    free(temp_path);
     return return_temp;
 }
 
 int main(void) {
     // memory test area
-#define MEMORY_TEST_OFF // switch
 #ifdef MEMORY_TEST_ON
 #define ARC_NUMBER  280000
     printf("size of ArcNode: %zu\n B", sizeof(ArcNode));
@@ -124,7 +116,6 @@ int main(void) {
     gettimeofday(&start_time, 0);
 
     AdjGraph *G;
-    // G = (AdjGraph *) malloc(sizeof(AdjGraph));   // useless `malloc`
     G = creatAdj(MAP_FILENAME);
     pthread_t thread_list[THREAD_NUMBER];
 
@@ -135,7 +126,9 @@ int main(void) {
         current_msg->G = G;
 
         // preview the start and end of slice
+#ifdef DEBUG_OUTPUT_ON
         printf("%d %d\n", current_msg->start, current_msg->end);
+#endif
 
         pthread_create(thread_list + i, NULL, multi_thread_dfs, current_msg);
     }
@@ -218,7 +211,7 @@ mixed_path_result *DFS(AdjGraph *G, int v, const int start, \
         }
 
         // TODO: could change temp_path[0] -> start ?
-        if (visited[w] == 0 && w > temp_path[0] && path_length < 7)
+        if (visited[w] == 0 && w > start && path_length < 7)
             DFS(G, w, start,
                 path_length, my_path_length, my_path, temp_path, visited);    // recursion
 
@@ -231,15 +224,6 @@ mixed_path_result *DFS(AdjGraph *G, int v, const int start, \
 
     path_length--;   // decrease path length
 
-    // generate the return info
-//    if (path_length == 0) {
-//        // TODO: free the memory located for mixed_path_result
-//        mixed_path_result *temp = (mixed_path_result *) malloc(sizeof(mixed_path_result));
-//        temp->num_of_path = *my_path_length;
-//        temp->path_list = my_path;
-//
-//        return temp;
-//    } else
     return NULL;
 }
 
@@ -250,7 +234,6 @@ void merge_mixed_path_result(mixed_path_result *src, mixed_path_result *dest) {
         memcpy(dest->path_list + base + i, src->path_list + i, sizeof(path_info));
     }
     free(src->path_list);
-    //free(src);
     dest->num_of_path += src->num_of_path;
 }
 
