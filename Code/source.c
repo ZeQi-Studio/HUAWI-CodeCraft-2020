@@ -7,7 +7,7 @@
 #define RESULT_FILENAME  "my_result.txt"
 #define MAXV 1000000
 #define MAX_PATH_LENGTH 7
-#define THREAD_NUMBER 8
+#define THREAD_NUMBER 100
 
 typedef struct ArcNode {
     int adj_vex;    // out bound of vec
@@ -155,7 +155,6 @@ void *DFS(void *msg_row) {
 
     AdjGraph *G = msg->G;
 
-
     // TODO: free all these located memory, especially `my_path`
     if (msg->path_length == 0) {
         // store all the result
@@ -163,7 +162,7 @@ void *DFS(void *msg_row) {
         *(msg->my_path_length) = 0;
         msg->my_path = (path_info *) malloc(sizeof(path_info) * MAXV);
 
-        msg->temp_path = (int *) malloc(sizeof(int) * MAX_PATH_LENGTH);
+        msg->temp_path = (int *) calloc(MAX_PATH_LENGTH, sizeof(int));
         msg->visited = (int *) calloc(MAXV, sizeof(int));
     }
 
@@ -214,16 +213,18 @@ void *DFS(void *msg_row) {
 
     // generate the return info
     if (path_length == 0) {
-        // free memory
-        free(visited);
-        free(temp_path);
-        free(my_path);
-        free(my_path_length);
-
         // TODO: free the memory located for mixed_path_result
         mixed_path_result *temp = (mixed_path_result *) malloc(sizeof(mixed_path_result));
         temp->num_of_path = *my_path_length;
         temp->path_list = my_path;
+
+        // free memory
+        free(visited);
+        free(temp_path);
+        free(my_path_length);
+
+        free(msg_row);
+
         return temp;
     } else
         return NULL;
@@ -231,11 +232,10 @@ void *DFS(void *msg_row) {
 
 void merge_mixed_path_result(mixed_path_result *src, mixed_path_result *dest) {
     int base = dest->num_of_path;
-    for (int i = 0; i < src->num_of_path; i++) {
-        memcpy(dest->path_list + base + i, src->path_list + i, sizeof(path_info));
-        free(src->path_list);
-    }
+    memcpy(dest->path_list + base, src->path_list, src->num_of_path * sizeof(path_info));
     dest->num_of_path += src->num_of_path;
+    free(src->path_list);
+    free(src);
 }
 
 void write_path(const char *filename, mixed_path_result result) {
