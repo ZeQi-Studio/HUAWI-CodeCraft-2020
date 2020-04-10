@@ -8,8 +8,8 @@
 #define MAP_FILENAME  "./Data/2755223/test_data.txt"
 #define RESULT_FILENAME  "my_result.txt"
 #define MAXV 1000000
-#define MAX_RING_NUMBER 3000000      // 最大可能的环数目
-#define MAX_NODE_NUMBER 560000      // 最大节点数目
+#define MAX_RING_NUMBER 3000000     // max ring number
+#define MAX_NODE_NUMBER 560000      // max node number
 #define MAX_PATH_LENGTH 7
 
 // multi-thread
