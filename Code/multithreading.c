@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
-#include <zconf.h>
+//#include <zconf.h>
 #include <sys/time.h>
 
 #define MAP_FILENAME  "./Data/1004812/test_data.txt"
@@ -11,6 +11,9 @@
 #define MAX_PATH_LENGTH 7
 #define THREAD_NUMBER 8
 #define SLICE ((int)(G->n / THREAD_NUMBER) + 1)
+#define MAX_HASH_LENGTH 56000
+#define HASH_NUMBER 55997
+
 int node_number = 0;
 pthread_mutex_t count_lock;
 
@@ -23,7 +26,7 @@ typedef struct ArcNode {
 } ArcNode;
 
 typedef struct Vnode {
-    int data;               // unused node info
+    unsigned int ID;               // unused node info
     ArcNode *first_arc;      // head of list
 } VNode;
 
@@ -52,10 +55,55 @@ typedef struct thread_info {
     int end;
 } thread_info;
 
+// hash
+typedef struct node{
+	unsigned int ID;
+	int ID_index;
+	struct node *next;
+}hash_node;
+
+typedef struct{
+	hash_node *hash_list[MAX_HASH_LENGTH];
+	int index_num;  
+}hash_table;
+
 int min(int a, int b) {
     return a < b ? a : b;
 }
 
+int hash_founction(unsigned int number){
+    return number%HASH_NUMBER;
+}
+
+int search(unsigned int ID,hash_node *node){
+    while(1){
+        if(node==NULL){
+            return -1;
+        }
+        if(node->ID==ID){
+            return node->ID_index;
+        }
+
+        node = node->next;
+    }
+}
+
+int HashSearch(unsigned int ID,hash_table* my_table){
+    int index = hash_founction(ID),id_index;
+    id_index = search(ID,my_table->hash_list[index]);
+    if(id_index==-1){
+        hash_node *p = (hash_node*)malloc(sizeof(hash_node));
+        p->ID=ID;
+        p->ID_index=my_table->index_num;
+        //insert to list
+        p->next= my_table->hash_list[index];
+        my_table->hash_list[index] = p;
+        id_index = my_table->index_num;
+        //update table info
+        my_table->index_num++;
+    }
+    return id_index;
+}
 mixed_path_result *DFS(AdjGraph *G, int v, int start, \
         int path_length, int *my_path_length, path_info my_path[], int *temp_path, int visited[]);
 
@@ -182,9 +230,13 @@ AdjGraph *creatAdj(const char *filename) {
     FILE *map_file = fopen(filename, "r");  // data file
     AdjGraph *G = (AdjGraph *) malloc(sizeof(AdjGraph));    // head pointer of graph
     ArcNode *p;     // temp pointer for arc
-
-    int i, j, k;
-
+    hash_table my_table;
+    my_table.index_num=0;
+    for(int a=0;a<MAX_HASH_LENGTH;a++){
+        my_table.hash_list[a]=NULL;
+    }
+    unsigned int i, j, k;
+    int index_i,index_j;
     // init graph info
     G->e = 0;
     G->n = 0;
@@ -193,18 +245,18 @@ AdjGraph *creatAdj(const char *filename) {
     }
 
     while (EOF != fscanf(map_file, "%d,%d,%d\n", &i, &j, &k)) {
-
+        index_i = HashSearch(i,&my_table);
+        index_j = HashSearch(j,&my_table);
         p = (ArcNode *) malloc(sizeof(ArcNode));
-        p->adj_vex = j;
+        p->adj_vex = index_j;
         // insert to list
-        p->next_arc = G->adj_list[i].first_arc;
-        G->adj_list[i].first_arc = p;
+        p->next_arc = G->adj_list[index_i].first_arc;
+        G->adj_list[index_i].first_arc = p;
+        G->adj_list[index_i].ID =i;
         // update graph info
         G->e++;
-        if (i > G->n) {
-            G->n = i;
-        }
     }
+    G->n = my_table.index_num;
     return G;
 }
 
@@ -284,5 +336,6 @@ void write_path(const char *filename, mixed_path_result result) {
         }
     }
 }
+
 
 
