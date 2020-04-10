@@ -2,18 +2,18 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
-//#include <zconf.h>
-#include <sys/time.h>
 
-#define MAP_FILENAME  "./Data/2755223/test_data.txt"
-#define RESULT_FILENAME  "my_result.txt"
-#define MAXV 1000000
-#define MAX_RING_NUMBER 3000000     // max ring number
-#define MAX_NODE_NUMBER 560000      // max node number
+#define MAP_FILENAME  "/data/test_data.txt"
+#define RESULT_FILENAME  "/projects/student/result.txt"
+//#define MAP_FILENAME  "./Data/77409/test_data.txt"
+//#define RESULT_FILENAME  "./my_result.txt"
+
+#define MAX_RING_NUMBER 3000000
+#define MAX_NODE_NUMBER 560000
 #define MAX_PATH_LENGTH 7
 
 // multi-thread
-#define THREAD_NUMBER 8
+#define THREAD_NUMBER 256
 
 // hash table
 #define MAX_HASH_LENGTH 560000
@@ -25,6 +25,10 @@ pthread_mutex_t count_lock;
 
 #define MEMORY_TEST_OFF // switch
 #define DEBUG_OUTPUT_OFF
+#define TIMER_ON
+#ifdef TIMER_ON
+#include <sys/time.h>
+#endif
 
 typedef struct ArcNode {
     int adj_vex;    // out bound of vec
@@ -194,9 +198,11 @@ int main(void) {
     //exit(EXIT_SUCCESS);
 #endif
 
+#ifdef TIMER_ON
     // timer start
     struct timeval start_time, end_time;
     gettimeofday(&start_time, 0);
+#endif
 
     AdjGraph *G;
     G = creatAdj(MAP_FILENAME);
@@ -225,9 +231,11 @@ int main(void) {
 
     write_path(RESULT_FILENAME, all_ring);
 
+#ifdef TIMER_ON
     gettimeofday(&end_time, 0);
     double time_use = 1000000 * (end_time.tv_sec - start_time.tv_sec) + end_time.tv_usec - start_time.tv_usec;
     printf("Time: %lf s\n", (double) (time_use) / 1000000);
+#endif
 
     return 0;
 }
