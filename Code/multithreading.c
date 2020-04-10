@@ -5,14 +5,20 @@
 //#include <zconf.h>
 #include <sys/time.h>
 
-#define MAP_FILENAME  "./Data/1004812/test_data.txt"
+#define MAP_FILENAME  "./Data/2755223/test_data.txt"
 #define RESULT_FILENAME  "my_result.txt"
-#define MAXV 2000000
+#define MAXV 1000000
+#define MAX_RING_NUMBER 3000000      // 最大可能的环数目
+#define MAX_NODE_NUMBER 560000      // 最大节点数目
 #define MAX_PATH_LENGTH 7
+
+// multi-thread
 #define THREAD_NUMBER 8
-#define SLICE ((int)(G->n / THREAD_NUMBER) + 1)
-#define MAX_HASH_LENGTH 56000
-#define HASH_NUMBER 55997
+
+// hash table
+#define MAX_HASH_LENGTH 560000
+#define HASH_NUMBER 559970
+
 
 int node_number = 0;
 pthread_mutex_t count_lock;
@@ -34,7 +40,7 @@ typedef struct Vnode {
 typedef struct AdjGraph {
     int n;      // count node number
     int e;      // count edge number
-    VNode adj_list[MAXV + 10];    // node list
+    VNode *adj_list;    // node list
 } AdjGraph;
 
 // path_info
@@ -56,31 +62,31 @@ typedef struct thread_info {
 } thread_info;
 
 // hash
-typedef struct node{
-	unsigned int ID;
-	int ID_index;
-	struct node *next;
-}hash_node;
+typedef struct node {
+    unsigned int ID;
+    int ID_index;
+    struct node *next;
+} hash_node;
 
-typedef struct{
-	hash_node *hash_list[MAX_HASH_LENGTH];
-	int index_num;  
-}hash_table;
+typedef struct {
+    hash_node *hash_list[MAX_HASH_LENGTH];
+    int index_num;
+} hash_table;
 
 int min(int a, int b) {
     return a < b ? a : b;
 }
 
-int hash_founction(unsigned int number){
-    return number%HASH_NUMBER;
+int hash_founction(unsigned int number) {
+    return number % HASH_NUMBER;
 }
 
-int search(unsigned int ID,hash_node *node){
-    while(1){
-        if(node==NULL){
+int search(unsigned int ID, hash_node *node) {
+    while (1) {
+        if (node == NULL) {
             return -1;
         }
-        if(node->ID==ID){
+        if (node->ID == ID) {
             return node->ID_index;
         }
 
@@ -88,15 +94,15 @@ int search(unsigned int ID,hash_node *node){
     }
 }
 
-int HashSearch(unsigned int ID,hash_table* my_table){
-    int index = hash_founction(ID),id_index;
-    id_index = search(ID,my_table->hash_list[index]);
-    if(id_index==-1){
-        hash_node *p = (hash_node*)malloc(sizeof(hash_node));
-        p->ID=ID;
-        p->ID_index=my_table->index_num;
+int HashSearch(unsigned int ID, hash_table *my_table) {
+    int index = hash_founction(ID), id_index;
+    id_index = search(ID, my_table->hash_list[index]);
+    if (id_index == -1) {
+        hash_node *p = (hash_node *) malloc(sizeof(hash_node));
+        p->ID = ID;
+        p->ID_index = my_table->index_num;
         //insert to list
-        p->next= my_table->hash_list[index];
+        p->next = my_table->hash_list[index];
         my_table->hash_list[index] = p;
         id_index = my_table->index_num;
         //update table info
@@ -104,6 +110,7 @@ int HashSearch(unsigned int ID,hash_table* my_table){
     }
     return id_index;
 }
+
 mixed_path_result *DFS(AdjGraph *G, int v, int start, \
         int path_length, int *my_path_length, path_info my_path[], int *temp_path, int visited[]);
 
@@ -116,10 +123,10 @@ void merge_mixed_path_result(mixed_path_result *src, mixed_path_result *dest);
 void *multi_thread_dfs(void *msg_raw) {
     thread_info *msg = (struct thread_info *) msg_raw;
 
-    int visited[MAXV] = {0};
-    unsigned int *temp_path = (int *) malloc((MAX_PATH_LENGTH + 10) * sizeof(int));
+    int *visited = (int *) calloc(MAX_NODE_NUMBER, sizeof(int));
+    int *temp_path = (int *) malloc((MAX_PATH_LENGTH + 1) * sizeof(int));
     int my_path_length = 0;
-    path_info *my_path = (path_info *) malloc(sizeof(path_info) * MAXV);
+    path_info *my_path = (path_info *) malloc(sizeof(path_info) * MAX_RING_NUMBER);
     mixed_path_result *return_temp = (mixed_path_result *) malloc(sizeof(mixed_path_result));
     if (my_path == NULL) {
         printf("Allocate memory failed.\n");
@@ -138,11 +145,11 @@ void *multi_thread_dfs(void *msg_raw) {
         } else {
             return_temp->num_of_path = my_path_length;
             return_temp->path_list = my_path;
-            free(msg_raw);
+            free(visited);
+            free(msg);
             free(temp_path);
             return return_temp;
         }
-
     }
 }
 
@@ -154,11 +161,11 @@ int compare_function(const void *a, const void *b) {
         return -1;
     else if (c->num > d->num)
         return 1;
-    else{
-        for(int i=0;i<c->num;i++){
-            if (c->path[i]>d->path[i])
+    else {
+        for (int i = 0; i < c->num; i++) {
+            if (c->path[i] > d->path[i])
                 return 1;
-            else if (c->path[i]<d->path[i])
+            else if (c->path[i] < d->path[i])
                 return -1;
         }
     }
@@ -206,7 +213,7 @@ int main(void) {
     // join the result
     mixed_path_result all_ring;
     all_ring.num_of_path = 0;
-    all_ring.path_list = (path_info *) malloc(sizeof(path_info) * MAXV);
+    all_ring.path_list = (path_info *) malloc(sizeof(path_info) * MAX_RING_NUMBER);
     for (int i = 0; i < THREAD_NUMBER; i++) {
         void *return_raw;
         pthread_join(thread_list[i], &return_raw);
@@ -228,31 +235,34 @@ int main(void) {
 
 AdjGraph *creatAdj(const char *filename) {
     FILE *map_file = fopen(filename, "r");  // data file
+
     AdjGraph *G = (AdjGraph *) malloc(sizeof(AdjGraph));    // head pointer of graph
+    G->adj_list = (VNode *) malloc(sizeof(VNode) * MAX_NODE_NUMBER);
+
     ArcNode *p;     // temp pointer for arc
     hash_table my_table;
-    my_table.index_num=0;
-    for(int a=0;a<MAX_HASH_LENGTH;a++){
-        my_table.hash_list[a]=NULL;
+    my_table.index_num = 0;
+    for (int a = 0; a < MAX_HASH_LENGTH; a++) {
+        my_table.hash_list[a] = NULL;
     }
     unsigned int i, j, k;
-    int index_i,index_j;
+    int index_i, index_j;
     // init graph info
     G->e = 0;
     G->n = 0;
-    for (int a = 0; a < MAXV; a++) {
+    for (int a = 0; a < MAX_NODE_NUMBER; a++) {
         G->adj_list[a].first_arc = NULL;
     }
 
     while (EOF != fscanf(map_file, "%d,%d,%d\n", &i, &j, &k)) {
-        index_i = HashSearch(i,&my_table);
-        index_j = HashSearch(j,&my_table);
+        index_i = HashSearch(i, &my_table);
+        index_j = HashSearch(j, &my_table);
         p = (ArcNode *) malloc(sizeof(ArcNode));
         p->adj_vex = index_j;
         // insert to list
         p->next_arc = G->adj_list[index_i].first_arc;
         G->adj_list[index_i].first_arc = p;
-        G->adj_list[index_i].ID =i;
+        G->adj_list[index_i].ID = i;
         // update graph info
         G->e++;
     }
@@ -351,6 +361,3 @@ void write_path(const char *filename, mixed_path_result result) {
         }
     }
 }
-
-
-
