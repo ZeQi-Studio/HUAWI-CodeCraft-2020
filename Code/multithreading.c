@@ -8,8 +8,8 @@
 #define MAP_FILENAME  "./Data/2755223/test_data.txt"
 #define RESULT_FILENAME  "my_result.txt"
 #define MAXV 1000000
-#define MAX_RING_NUMBER 3000000      // æœ€å¤§å¯èƒ½çš„çŽ¯æ•°ç›®
-#define MAX_NODE_NUMBER 560000      // æœ€å¤§èŠ‚ç‚¹æ•°ç›®
+#define MAX_RING_NUMBER 3000000      // ×î´ó¿ÉÄÜµÄ»·ÊýÄ¿
+#define MAX_NODE_NUMBER 560000      // ×î´ó½ÚµãÊýÄ¿
 #define MAX_PATH_LENGTH 7
 
 // multi-thread
@@ -290,18 +290,18 @@ mixed_path_result *DFS(AdjGraph *G, int v, const int start, \
         if (w == start && path_length > 2) {
             // copy path to the output: dest, src
         	int min= temp_path[0],index=0,i;
-			for(i = 0;i<path_lenth;i++){
+			for(i = 0;i<path_length;i++){
 				if(min>temp_path[i]){
 					min = temp_path[i];
 					index = i;
 				}
 			} 
-			for(i = 0;i<path_lenth;i++){
-				if(i+index<path_lenth){
-					my_path[path_lenth-3].path[my_path[path_lenth-3].length].path[i] = temp_path[i+index];
+			for(i = 0;i<path_length;i++){
+				if(i+index<path_length){
+					my_path[*my_path_length].path[i] = temp_path[i+index];
 				}
 				else{
-					my_path[path_lenth-3].path[my_path[path_lenth-3].length].path[i] = temp_path[i+index-path_lenth];
+					my_path[*my_path_length].path[i] = temp_path[i+index-path_length];
 				}
 			}
             //memcpy(my_path[*my_path_length].path, temp_path, sizeof(int) * path_length);
@@ -360,4 +360,3 @@ void write_path(const char *filename, mixed_path_result result) {
             }
         }
     }
-}
