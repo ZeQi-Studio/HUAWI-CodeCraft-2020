@@ -279,7 +279,22 @@ mixed_path_result *DFS(AdjGraph *G, int v, const int start, \
         // find a ring
         if (w == start && path_length > 2) {
             // copy path to the output: dest, src
-            memcpy(my_path[*my_path_length].path, temp_path, sizeof(int) * path_length);
+        	int min= temp_path[0],index=0,i;
+			for(i = 0;i<path_lenth;i++){
+				if(min>temp_path[i]){
+					min = temp_path[i];
+					index = i;
+				}
+			} 
+			for(i = 0;i<path_lenth;i++){
+				if(i+index<path_lenth){
+					my_path[path_lenth-3].path[my_path[path_lenth-3].length].path[i] = temp_path[i+index];
+				}
+				else{
+					my_path[path_lenth-3].path[my_path[path_lenth-3].length].path[i] = temp_path[i+index-path_lenth];
+				}
+			}
+            //memcpy(my_path[*my_path_length].path, temp_path, sizeof(int) * path_length);
             my_path[*my_path_length].num = path_length;    // set the path length
             (*my_path_length)++;    // mark the total number of path
 
