@@ -40,7 +40,7 @@ typedef struct AdjGraph {
 // path_info
 typedef struct path_info {
     int num;
-    int path[MAX_PATH_LENGTH + 2];
+    unsigned int path[MAX_PATH_LENGTH + 2];
 } path_info;
 
 // path info + length
@@ -117,7 +117,7 @@ void *multi_thread_dfs(void *msg_raw) {
     thread_info *msg = (struct thread_info *) msg_raw;
 
     int visited[MAXV] = {0};
-    int *temp_path = (int *) malloc((MAX_PATH_LENGTH + 10) * sizeof(int));
+    unsigned int *temp_path = (int *) malloc((MAX_PATH_LENGTH + 10) * sizeof(int));
     int my_path_length = 0;
     path_info *my_path = (path_info *) malloc(sizeof(path_info) * MAXV);
     mixed_path_result *return_temp = (mixed_path_result *) malloc(sizeof(mixed_path_result));
@@ -270,7 +270,7 @@ mixed_path_result *DFS(AdjGraph *G, int v, const int start, \
     visited[v] = 1;        // mark visited
     p = G->adj_list[v].first_arc;        // pointer to the edge link list
 
-    temp_path[path_length] = v;  // write current node to the path
+    temp_path[path_length] = G->adj_list[v].ID;  // write current node to the path
     path_length++;   // increase path length
 
     while (p != NULL) {
