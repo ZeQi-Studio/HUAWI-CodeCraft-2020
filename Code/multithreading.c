@@ -360,3 +360,4 @@ void write_path(const char *filename, mixed_path_result result) {
             }
         }
     }
+} 
