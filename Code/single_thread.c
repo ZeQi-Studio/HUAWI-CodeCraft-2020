@@ -3,11 +3,13 @@
 #include <string.h>
 #include <time.h>
 
-#define MAP_FILENAME  "C:/Users/10372/Desktop/³õÈü/test_data.txt"
-#define RESULT_FILENAME  "my_resultmy.txt"
-#define MAXV 1000000
+#define MAP_FILENAME  "/data/test_data.txt"
+#define RESULT_FILENAME  "/projects/student/result.txt"
+#define MAXV 560000
 #define MAX_PATH_LENGTH 7
 #define THREAD_NUMBER 8
+#define MAX_HASH_LENGTH 56000
+#define HASH_NUMBER 55997
 
 typedef struct ArcNode {
     unsigned int adj_vex;    // out bound of vec
@@ -15,7 +17,7 @@ typedef struct ArcNode {
 }/*__attribute__((packed))*/ ArcNode;
 
 typedef struct Vnode {
-    int data;               // unused node info
+    unsigned int ID;               // unused node info
     ArcNode *first_arc;      // head of list
 } VNode;
 
@@ -35,7 +37,64 @@ typedef struct path_info{
     path path[MAXV];
     int length;		//record the path(The number of nodes in the path is constant) length
 }path_info;
+typedef struct node{
+    unsigned int ID;
+    int ID_index;
+    struct node *next;
+}hash_node;
 
+typedef struct{
+    hash_node *hash_list[MAX_HASH_LENGTH];
+    int index_num;
+}hash_table;
+
+int min(int a, int b) {
+    return a < b ? a : b;
+}
+
+int hash_founction(unsigned int number){
+    return number%HASH_NUMBER;
+}
+
+//void init_hash_table(hash_table *my_table){
+//    my_table = (hash_table*)malloc(sizeof(hash_table));
+//    my_table->index_num=0;
+//    printf("%d\n",my_table->index_num);
+//    int i;
+//    for(i=0;i<MAX_HASH_LENGTH;i++){
+//        my_table->hash_list[i]=NULL;
+//    }
+//}
+
+int search(unsigned int ID,hash_node *node){
+    while(1){
+        if(node==NULL){
+            return -1;
+        }
+        if(node->ID==ID){
+            return node->ID_index;
+        }
+
+        node = node->next;
+    }
+}
+
+int HashSearch(unsigned int ID,hash_table* my_table){
+    int index = hash_founction(ID),id_index;
+    id_index = search(ID,my_table->hash_list[index]);
+    if(id_index==-1){
+        hash_node *p = (hash_node*)malloc(sizeof(hash_node));
+        p->ID=ID;
+        p->ID_index=my_table->index_num;
+        //insert to list
+        p->next= my_table->hash_list[index];
+        my_table->hash_list[index] = p;
+        id_index = my_table->index_num;
+        //update table info
+        my_table->index_num++;
+    }
+    return id_index;
+}
 void DFS(AdjGraph *G, int v, int start);
 
 AdjGraph *creatAdj(const char *filename);
@@ -51,7 +110,7 @@ void bubble_sort_path();
 int compile(int a[],int b[],int i);
 
 path_info my_path[MAX_PATH_LENGTH-2];
-int temp_path[MAX_PATH_LENGTH];
+unsigned int temp_path[MAX_PATH_LENGTH];
 int path_lenth = 0;
 
 int main(void) {
@@ -102,31 +161,37 @@ AdjGraph *creatAdj(const char *filename) {
     FILE *map_file = fopen(filename, "r");  // data file
     AdjGraph *G = (AdjGraph *) malloc(sizeof(AdjGraph));    // head pointer of graph
     ArcNode *p;     // temp pointer for arc
-
-    int i, j, k;
+    hash_table my_table;
+    my_table.index_num=0;
+    int a;
+    for(a=0;a<MAX_HASH_LENGTH;a++){
+        my_table.hash_list[a]=NULL;
+    }
+    unsigned int i, j, k;
+    int index_i,index_j;
 
     // init graph info
     G->e = 0;
     G->n = 0;
-    int a;
     for (a = 0; a < MAXV; a++) {
         G->adj_list[a].first_arc = NULL;
     }
 
     while (EOF != fscanf(map_file, "%d,%d,%d\n", &i, &j, &k)) {
-
+        index_i = HashSearch(i,&my_table);
+        index_j = HashSearch(j,&my_table);
         p = (ArcNode *) malloc(sizeof(ArcNode));
-        p->adj_vex = j;
+        //p->adj_vex = j;
+        p->adj_vex = index_j;
         // insert to list
-        p->next_arc = G->adj_list[i].first_arc;
-        G->adj_list[i].first_arc = p;
+        p->next_arc = G->adj_list[index_i].first_arc;
+        G->adj_list[index_i].first_arc = p;
+        G->adj_list[index_i].ID =i;
         // update graph info
         G->e++;
-        if (i > G->n) {
-            G->n = i;
-        }
     }
-    fclose(map_file); 
+    G->n = my_table.index_num;
+    fclose(map_file);
     return G;
 }
 
@@ -134,26 +199,41 @@ AdjGraph *creatAdj(const char *filename) {
 // mark visited
 int visited[MAXV] = {0};
 void DFS(AdjGraph *G, int v, const int start) {
-
     ArcNode *p;
     int w;
-    visited[v] = 1;        //ÖÃÒÑ·ÃÎÊ±ê¼Ç
-    p = G->adj_list[v].first_arc;        //pÖ¸Ïò¶¥µãvµÄµÚÒ»Ìõ±ßµÄ±ßÍ·½áµã
-    temp_path[path_lenth] = v;
+    visited[v] = 1;        //ç½®å·²è®¿é—®æ ‡è®°
+    p = G->adj_list[v].first_arc;        //pæŒ‡å‘é¡¶ç‚¹vçš„ç¬¬ä¸€æ¡è¾¹çš„è¾¹å¤´ç»“ç‚¹
+    temp_path[path_lenth] = G->adj_list[v].ID;
     path_lenth++;
-
+    //printf("%d,%d\n",v,G->adj_list[v].ID);
     while (p != NULL) {
         w = p->adj_vex; // outbound index number
 
         // find a ring
         if (w == start && path_lenth > 2) {
-            memcpy(my_path[path_lenth-3].path[my_path[path_lenth-3].length].path, temp_path, sizeof(unsigned int) * path_lenth);
+            //sort ring
+            int min= temp_path[0],index=0,i;
+            for(i = 0;i<path_lenth;i++){
+                if(min>temp_path[i]){
+                    min = temp_path[i];
+                    index = i;
+                }
+            }
+            for(i = 0;i<path_lenth;i++){
+                if(i+index<path_lenth){
+                    my_path[path_lenth-3].path[my_path[path_lenth-3].length].path[i] = temp_path[i+index];
+                }
+                else{
+                    my_path[path_lenth-3].path[my_path[path_lenth-3].length].path[i] = temp_path[i+index-path_lenth];
+                }
+            }
+            //memcpy(my_path[path_lenth-3].path[my_path[path_lenth-3].length].path, temp_path, sizeof(unsigned int) * path_lenth);
             my_path[path_lenth-3].length++;
             printf("%dacc\n",my_path[0].length+my_path[1].length+my_path[2].length+my_path[3].length+my_path[4].length);
         }
-        if (visited[w] == 0 && w > temp_path[0] && path_lenth < 7)
-            DFS(G, w, start);    //Èôw¶¥µãÎ´·ÃÎÊ£¬µÝ¹é·ÃÎÊËü
-        p = p->next_arc;      //pÖ¸Ïò¶¥µãvµÄÏÂÒ»Ìõ±ßµÄ±ßÍ·½áµã
+        if (visited[w] == 0 && w > start && path_lenth < 7)
+            DFS(G, w, start);    //è‹¥wé¡¶ç‚¹æœªè®¿é—®ï¼Œé€’å½’è®¿é—®å®ƒ
+        p = p->next_arc;      //pæŒ‡å‘é¡¶ç‚¹vçš„ä¸‹ä¸€æ¡è¾¹çš„è¾¹å¤´ç»“ç‚¹
     }
 
     visited[v] = 0;
@@ -162,7 +242,7 @@ void DFS(AdjGraph *G, int v, const int start) {
 }
 
 
-void DispAdj(AdjGraph *G)    //Êä³öÁÚ½Ó±íG
+void DispAdj(AdjGraph *G)    //è¾“å‡ºé‚»æŽ¥è¡¨G
 {
     int i;
     ArcNode *p;
@@ -170,7 +250,7 @@ void DispAdj(AdjGraph *G)    //Êä³öÁÚ½Ó±íG
         p = G->adj_list[i].first_arc;
         printf("%d: ", i);
         while (p != NULL) {
-            printf("%3d¡ú", p->adj_vex);
+            printf("%3dâ†’", p->adj_vex);
             p = p->next_arc;
         }
         printf("end\n");
@@ -204,7 +284,7 @@ void write_path(const char *filename) {
 void bubble_sort_path(){
     int i,j,k;
     int temp[MAX_PATH_LENGTH];
-    for(i=0;i<MAX_PATH_LENGTH-3;i++){
+    for(i=0;i<MAX_PATH_LENGTH-2;i++){
         for(j=0;j<my_path[i].length;j++){
             for (k = 0;  k<j ; k++) {
                 if (compile(my_path[i].path[j].path,my_path[i].path[k].path,0)==1){
