@@ -142,10 +142,10 @@ void *multi_thread_dfs(void *msg_raw) {
     }
     //new add ----->mark special node
     for (int i = 0; i < msg->G->n; i++) {
-        visited = mark_special_node(msg->G,i,visited);        
+        visited = mark_special_node(msg->G,i,visited);
     }
-    
-    
+
+
     int current_node;
     while (1) {
         pthread_mutex_lock(&count_lock);
@@ -269,7 +269,7 @@ AdjGraph *creatAdj(const char *filename) {
     AdjGraph *G = (AdjGraph *) malloc(sizeof(AdjGraph));    // head pointer of graph
     G->adj_list = (VNode *) malloc(sizeof(VNode) * MAX_NODE_NUMBER);
 
-    ArcNode *p;     // temp pointer for arc
+    ArcNode *p,*q;     // temp pointer for arc
     hash_table my_table;
     my_table.index_num = 0;
     for (int a = 0; a < MAX_HASH_LENGTH; a++) {
@@ -282,17 +282,30 @@ AdjGraph *creatAdj(const char *filename) {
     G->n = 0;
     for (int a = 0; a < MAX_NODE_NUMBER; a++) {
         G->adj_list[a].first_out = NULL;
+        G->adj_list[a].first_in = NULL;
+        G->adj_list[a].in_degree = 0;
+        G->adj_list[a].out_degree = 0;
     }
 
     while (EOF != fscanf(map_file, "%d,%d,%d\n", &i, &j, &k)) {
-        index_i = HashSearch(i, &my_table);
-        index_j = HashSearch(j, &my_table);
+        index_i = HashSearch(i,&my_table);
+        index_j = HashSearch(j,&my_table);
         p = (ArcNode *) malloc(sizeof(ArcNode));
+        q = (ArcNode *) malloc(sizeof(ArcNode));
+
         p->adj_vex = index_j;
-        // insert to list
+        q->adj_vex = index_i;
+        // insert to out list
         p->next_arc = G->adj_list[index_i].first_out;
         G->adj_list[index_i].first_out = p;
-        G->adj_list[index_i].ID = i;
+        G->adj_list[index_i].ID =i;
+        //insert to in list
+        q->next_arc = G->adj_list[index_j].first_in;
+        G->adj_list[index_j].first_in = q;
+        G->adj_list[index_j].ID = j;
+
+        G->adj_list[index_j].in_degree++;
+        G->adj_list[index_i].out_degree++;
         // update graph info
         G->e++;
     }
