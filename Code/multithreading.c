@@ -3,17 +3,17 @@
 #include <string.h>
 #include <pthread.h>
 
-#define MAP_FILENAME  "/data/test_data.txt"
-#define RESULT_FILENAME  "/projects/student/result.txt"
-//#define MAP_FILENAME  "./Data/77409/test_data.txt"
-//#define RESULT_FILENAME  "./my_result.txt"
+//#define MAP_FILENAME  "/data/test_data.txt"
+//#define RESULT_FILENAME  "/projects/student/result.txt"
+#define MAP_FILENAME  "./Data/77409/test_data.txt"
+#define RESULT_FILENAME  "./my_result.txt"
 
 #define MAX_RING_NUMBER 3000000
 #define MAX_NODE_NUMBER 560000
 #define MAX_PATH_LENGTH 7
 
 // multi-thread
-#define THREAD_NUMBER 256
+#define THREAD_NUMBER 7
 
 // hash table
 #define MAX_HASH_LENGTH 560000
@@ -27,7 +27,10 @@ pthread_mutex_t count_lock;
 #define DEBUG_OUTPUT_OFF
 #define TIMER_ON
 #ifdef TIMER_ON
+
+#define TIMER_MIDDLE_OFF
 #include <sys/time.h>
+
 #endif
 
 typedef struct ArcNode {
@@ -115,8 +118,8 @@ int HashSearch(unsigned int ID, hash_table *my_table) {
     return id_index;
 }
 
-mixed_path_result *DFS(AdjGraph *G, int v, int start, \
-        int path_length, int *my_path_length, path_info my_path[], int *temp_path, int visited[]);
+void DFS(VNode *G, int v, int start, \
+        int path_length, int *my_path_length, path_info my_path[],unsigned int *temp_path, int visited[]);
 
 AdjGraph *creatAdj(const char *filename);
 
@@ -126,9 +129,11 @@ void merge_mixed_path_result(mixed_path_result *src, mixed_path_result *dest);
 
 void *multi_thread_dfs(void *msg_raw) {
     thread_info *msg = (struct thread_info *) msg_raw;
+    int n = msg->G->n;
+    AdjGraph *G = msg->G;
 
     int *visited = (int *) calloc(MAX_NODE_NUMBER, sizeof(int));
-    int *temp_path = (int *) malloc((MAX_PATH_LENGTH + 1) * sizeof(int));
+    unsigned int *temp_path = (int *) malloc((MAX_PATH_LENGTH + 1) * sizeof(unsigned int));
     int my_path_length = 0;
     path_info *my_path = (path_info *) malloc(sizeof(path_info) * MAX_RING_NUMBER);
     mixed_path_result *return_temp = (mixed_path_result *) malloc(sizeof(mixed_path_result));
@@ -143,9 +148,9 @@ void *multi_thread_dfs(void *msg_raw) {
         current_node = node_number;
         node_number++;
         pthread_mutex_unlock(&count_lock);
-        if (node_number < msg->G->n) {
-            //printf("%d\n",current_node);
-            DFS(msg->G, current_node, current_node, 0, &my_path_length, my_path, temp_path, visited);
+        if (node_number < n) {
+//            printf("%d\n",current_node);
+            DFS(G->adj_list, current_node, current_node, 0, &my_path_length, my_path, temp_path, visited);
         } else {
             return_temp->num_of_path = my_path_length;
             return_temp->path_list = my_path;
@@ -158,18 +163,18 @@ void *multi_thread_dfs(void *msg_raw) {
 }
 
 int compare_function(const void *a, const void *b) {
-    path_info *c = (path_info *) a;
-    path_info *d = (path_info *) b;
+    unsigned int c = ((path_info *) a)->num;
+    unsigned int d = ((path_info *) b)->num;
 
-    if (c->num < d->num)
+    if (c < d)
         return -1;
-    else if (c->num > d->num)
+    else if (c > d)
         return 1;
     else {
-        for (int i = 0; i < c->num; i++) {
-            if (c->path[i] > d->path[i])
+        for (int i = 0; i < c; i++) {
+            if (((path_info *) a)->path[i] > ((path_info *) b)->path[i])
                 return 1;
-            else if (c->path[i] < d->path[i])
+            else if (((path_info *) a)->path[i] < ((path_info *) b)->path[i])
                 return -1;
         }
     }
@@ -201,6 +206,7 @@ int main(void) {
 #ifdef TIMER_ON
     // timer start
     struct timeval start_time, end_time;
+    double time_use;
     gettimeofday(&start_time, 0);
 #endif
 
@@ -208,11 +214,16 @@ int main(void) {
     G = creatAdj(MAP_FILENAME);
     pthread_t thread_list[THREAD_NUMBER];
 
+#ifdef TIMER_MIDDLE_ON
+    gettimeofday(&end_time, 0);
+    time_use = 1000000 * (end_time.tv_sec - start_time.tv_sec) + end_time.tv_usec - start_time.tv_usec;
+    printf("Create graph finished at: %lf s\n", (double) (time_use) / 1000000);
+#endif
+
     pthread_mutex_init(&count_lock, NULL);
     for (int i = 0; i < THREAD_NUMBER; i++) {
         thread_info *current_msg = (thread_info *) malloc(sizeof(thread_info));
         current_msg->G = G;
-
         pthread_create(thread_list + i, NULL, multi_thread_dfs, current_msg);
     }
 
@@ -223,18 +234,36 @@ int main(void) {
     for (int i = 0; i < THREAD_NUMBER; i++) {
         void *return_raw;
         pthread_join(thread_list[i], &return_raw);
+#ifdef TIMER_MIDDLE_ON
+        gettimeofday(&end_time, 0);
+        time_use = 1000000 * (end_time.tv_sec - start_time.tv_sec) + end_time.tv_usec - start_time.tv_usec;
+        printf("Multithread DFS finished at: %lf s\n", (double) (time_use) / 1000000);
+#endif
         mixed_path_result *ring_of_current_node = (mixed_path_result *) return_raw;
         merge_mixed_path_result(ring_of_current_node, &all_ring);
+#ifdef TIMER_MIDDLE_ON
+        gettimeofday(&end_time, 0);
+        time_use = 1000000 * (end_time.tv_sec - start_time.tv_sec) + end_time.tv_usec - start_time.tv_usec;
+        printf("Join thread result finished at: %lf s\n", (double) (time_use) / 1000000);
+#endif
     }
 
+
     qsort(all_ring.path_list, all_ring.num_of_path, sizeof(path_info), compare_function);
+
+#ifdef TIMER_MIDDLE_ON
+    gettimeofday(&end_time, 0);
+    time_use = 1000000 * (end_time.tv_sec - start_time.tv_sec) + end_time.tv_usec - start_time.tv_usec;
+    printf("qsort finished at: %lf s\n", (double) (time_use) / 1000000);
+#endif
 
     write_path(RESULT_FILENAME, all_ring);
 
 #ifdef TIMER_ON
     gettimeofday(&end_time, 0);
-    double time_use = 1000000 * (end_time.tv_sec - start_time.tv_sec) + end_time.tv_usec - start_time.tv_usec;
-    printf("Time: %lf s\n", (double) (time_use) / 1000000);
+    time_use = 1000000 * (end_time.tv_sec - start_time.tv_sec) + end_time.tv_usec - start_time.tv_usec;
+    printf("Write finished at: %lf s\n", (double) (time_use) / 1000000);
+    printf("Add done.\n");
 #endif
 
     return 0;
@@ -278,62 +307,58 @@ AdjGraph *creatAdj(const char *filename) {
     return G;
 }
 
-mixed_path_result *DFS(AdjGraph *G, int v, const int start, \
-        int path_length, int *my_path_length, path_info my_path[], int *temp_path, int visited[]) {
-
+void DFS(VNode * adj_list, int v, const int start, \
+        int path_length, int *my_path_length, path_info my_path[], unsigned int *temp_path, int visited[]) {
 
     ArcNode *p; // floating pointer
     int w;  // temp to store the current node index
 
-    visited[v] = 1;        // mark visited
-    p = G->adj_list[v].first_arc;        // pointer to the edge link list
+    p = adj_list[v].first_arc;        // pointer to the edge link list
 
-    temp_path[path_length] = G->adj_list[v].ID;  // write current node to the path
+    temp_path[path_length] = adj_list[v].ID;  // write current node to the path
     path_length++;   // increase path length
-
+    visited[v] = 1;
     while (p != NULL) {
         w = p->adj_vex; // outbound index number
 
         // find a ring
         if (w == start && path_length > 2) {
             // copy path to the output: dest, src
-        	int min= temp_path[0],index=0,i;
-			for(i = 0;i<path_length;i++){
-				if(min>temp_path[i]){
-					min = temp_path[i];
-					index = i;
-				}
-			} 
-			for(i = 0;i<path_length;i++){
-				if(i+index<path_length){
-					my_path[*my_path_length].path[i] = temp_path[i+index];
-				}
-				else{
-					my_path[*my_path_length].path[i] = temp_path[i+index-path_length];
-				}
-			}
+            int min = temp_path[0], index = 0, i;
+            for (i = 0; i < path_length; i++) {
+                if (min > temp_path[i]) {
+                    min = temp_path[i];
+                    index = i;
+                }
+            }
+            for (i = 0; i < path_length; i++) {
+                if (i + index < path_length) {
+                    my_path[*my_path_length].path[i] = temp_path[i + index];
+                } else {
+                    my_path[*my_path_length].path[i] = temp_path[i + index - path_length];
+                }
+            }
             //memcpy(my_path[*my_path_length].path, temp_path, sizeof(int) * path_length);
             my_path[*my_path_length].num = path_length;    // set the path length
             (*my_path_length)++;    // mark the total number of path
-
             //printf(".");
+            p = p->next_arc;      // next
+            continue;
         }
 
         // TODO: could change temp_path[0] -> start ?
-        if (visited[w] == 0 && w > start && path_length < 7)
-            DFS(G, w, start,
+        if (visited[w] == 0 && w > start && path_length < 7) {
+            DFS(adj_list, w, start,
                 path_length, my_path_length, my_path, temp_path, visited);    // recursion
-
+        }
         p = p->next_arc;      // next
     }
 
     // exit recursion
     visited[v] = 0; // clear mark
-    temp_path[path_length] = 0;  // clear path
+    //temp_path[path_length] = 0;  // clear path
 
     path_length--;   // decrease path length
-
-    return NULL;
 }
 
 
