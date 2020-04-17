@@ -5,7 +5,8 @@
 
 //#define MAP_FILENAME  "/data/test_data.txt"
 //#define RESULT_FILENAME  "/projects/student/result.txt"
-#define MAP_FILENAME  "./Data/77409/test_data.txt"
+
+#define MAP_FILENAME  "./Data/2755223/test_data.txt"
 #define RESULT_FILENAME  "./my_result.txt"
 
 #define MAX_RING_NUMBER 3000000
@@ -13,11 +14,11 @@
 #define MAX_PATH_LENGTH 7
 
 // multi-thread
-#define THREAD_NUMBER 7
+#define THREAD_NUMBER 4
 
 // hash table
 #define MAX_HASH_LENGTH 560000
-#define HASH_NUMBER 559970
+#define HASH_NUMBER 560000
 
 
 int node_number = 0;
@@ -28,13 +29,13 @@ pthread_mutex_t count_lock;
 #define TIMER_ON
 #ifdef TIMER_ON
 
-#define TIMER_MIDDLE_OFF
+#define TIMER_MIDDLE_ON
 #include <sys/time.h>
 
 #endif
 
 typedef struct ArcNode {
-    int adj_vex;    // out bound of vec
+    unsigned int adj_vex;    // out bound of vec
     struct ArcNode *next_arc;  // next vec
 } ArcNode;
 
@@ -64,8 +65,8 @@ typedef struct mixed_path_result {
 
 typedef struct thread_info {
     AdjGraph *G;
-    int start;
-    int end;
+//    int start;
+//    int end;
 } thread_info;
 
 // hash
@@ -80,11 +81,11 @@ typedef struct {
     int index_num;
 } hash_table;
 
-int min(int a, int b) {
-    return a < b ? a : b;
-}
+//int min(int a, int b) {
+//    return a < b ? a : b;
+//}
 
-int hash_founction(unsigned int number) {
+unsigned int hash_function(unsigned int number) {
     return number % HASH_NUMBER;
 }
 
@@ -101,8 +102,8 @@ int search(unsigned int ID, hash_node *node) {
     }
 }
 
-int HashSearch(unsigned int ID, hash_table *my_table) {
-    int index = hash_founction(ID), id_index;
+unsigned int HashSearch(unsigned int ID, hash_table *my_table) {
+    unsigned int index = hash_function(ID), id_index;
     id_index = search(ID, my_table->hash_list[index]);
     if (id_index == -1) {
         hash_node *p = (hash_node *) malloc(sizeof(hash_node));
@@ -118,7 +119,7 @@ int HashSearch(unsigned int ID, hash_table *my_table) {
     return id_index;
 }
 
-void DFS(VNode *G, int v, int start, \
+void DFS(VNode *adj_list, int v, int start, \
         int path_length, int *my_path_length, path_info my_path[],unsigned int *temp_path, int visited[]);
 
 AdjGraph *creatAdj(const char *filename);
@@ -133,7 +134,7 @@ void *multi_thread_dfs(void *msg_raw) {
     AdjGraph *G = msg->G;
 
     int *visited = (int *) calloc(MAX_NODE_NUMBER, sizeof(int));
-    unsigned int *temp_path = (int *) malloc((MAX_PATH_LENGTH + 1) * sizeof(unsigned int));
+    unsigned int *temp_path = (unsigned int *) malloc((MAX_PATH_LENGTH + 1) * sizeof(unsigned int));
     int my_path_length = 0;
     path_info *my_path = (path_info *) malloc(sizeof(path_info) * MAX_RING_NUMBER);
     mixed_path_result *return_temp = (mixed_path_result *) malloc(sizeof(mixed_path_result));
@@ -178,7 +179,7 @@ int compare_function(const void *a, const void *b) {
                 return -1;
         }
     }
-
+    return 0;
 }
 
 int main(void) {
@@ -283,7 +284,7 @@ AdjGraph *creatAdj(const char *filename) {
         my_table.hash_list[a] = NULL;
     }
     unsigned int i, j, k;
-    int index_i, index_j;
+    unsigned int index_i, index_j;
     // init graph info
     G->e = 0;
     G->n = 0;
@@ -324,7 +325,7 @@ void DFS(VNode * adj_list, int v, const int start, \
         // find a ring
         if (w == start && path_length > 2) {
             // copy path to the output: dest, src
-            int min = temp_path[0], index = 0, i;
+            unsigned int min = temp_path[0], index = 0, i;
             for (i = 0; i < path_length; i++) {
                 if (min > temp_path[i]) {
                     min = temp_path[i];
@@ -357,8 +358,6 @@ void DFS(VNode * adj_list, int v, const int start, \
     // exit recursion
     visited[v] = 0; // clear mark
     //temp_path[path_length] = 0;  // clear path
-
-    path_length--;   // decrease path length
 }
 
 
