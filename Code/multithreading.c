@@ -122,7 +122,7 @@ unsigned int HashSearch(unsigned int ID, hash_table *my_table) {
     return id_index;
 }
 
-void DFS(VNode *next_node, int v, int start, \
+void DFS(VNode *adj_list, int v, int start, \
         int path_length, int *my_path_length, path_info my_path[],unsigned int *temp_path, int visited[]);
 
 AdjGraph *creatAdj(const char *filename);
@@ -315,7 +315,7 @@ AdjGraph *creatAdj(const char *filename) {
     return G;
 }
 
-void DFS(VNode * next_node, int v, const int start, \
+void DFS(VNode * adj_list, int v, const int start, \
         int path_length, int *my_path_length, path_info my_path[], unsigned int *temp_path, int visited[]) {
 
 //    ArcNode *p; // floating pointer
@@ -323,11 +323,11 @@ void DFS(VNode * next_node, int v, const int start, \
 
 //    p = adj_list[v].first_arc;        // pointer to the edge link list
 
-    temp_path[path_length] = next_node[v].ID;  // write current node to the path
+    temp_path[path_length] = adj_list[v].ID;  // write current node to the path
     path_length++;   // increase path length
     visited[v] = 1;
-    while (i<next_node[v].out_degree) {
-        w = next_node->next_node[i]; // outbound index number
+    while (i<adj_list[v].out_degree) {
+        w = adj_list[v].next_node[i]; // outbound index number
 
         // find a ring
         if (w == start && path_length > 2) {
