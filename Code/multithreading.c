@@ -12,6 +12,7 @@
 #define MAX_RING_NUMBER 3000000
 #define MAX_NODE_NUMBER 560000
 #define MAX_PATH_LENGTH 7
+#define MAX_DEGREE 500
 
 // multi-thread
 #define THREAD_NUMBER 4
@@ -34,14 +35,16 @@ pthread_mutex_t count_lock;
 
 #endif
 
-typedef struct ArcNode {
-    unsigned int adj_vex;    // out bound of vec
-    struct ArcNode *next_arc;  // next vec
-} ArcNode;
+//typedef struct ArcNode {
+//    unsigned int adj_vex;    // out bound of vec
+//    struct ArcNode *next_arc;  // next vec
+//} ArcNode;
 
 typedef struct Vnode {
     unsigned int ID;               // unused node info
-    ArcNode *first_arc;      // head of list
+//    ArcNode *first_arc;      // head of list
+    int next_node[MAX_DEGREE];
+    int in_degree,out_degree;
 } VNode;
 
 // graph
@@ -119,7 +122,7 @@ unsigned int HashSearch(unsigned int ID, hash_table *my_table) {
     return id_index;
 }
 
-void DFS(VNode *adj_list, int v, int start, \
+void DFS(VNode *next_node, int v, int start, \
         int path_length, int *my_path_length, path_info my_path[],unsigned int *temp_path, int visited[]);
 
 AdjGraph *creatAdj(const char *filename);
@@ -185,7 +188,7 @@ int compare_function(const void *a, const void *b) {
 int main(void) {
     // memory test area
 #ifdef MEMORY_TEST_ON
-#define ARC_NUMBER  280000
+    #define ARC_NUMBER  280000
     printf("size of ArcNode: %zu\n B", sizeof(ArcNode));
     printf("take memory: %f MB\n", (float) sizeof(ArcNode) * ARC_NUMBER / 1024 / 1024);
 
@@ -277,7 +280,7 @@ AdjGraph *creatAdj(const char *filename) {
     AdjGraph *G = (AdjGraph *) malloc(sizeof(AdjGraph));    // head pointer of graph
     G->adj_list = (VNode *) malloc(sizeof(VNode) * MAX_NODE_NUMBER);
 
-    ArcNode *p;     // temp pointer for arc
+//    ArcNode *p;     // temp pointer for arc
     hash_table my_table;
     my_table.index_num = 0;
     for (int a = 0; a < MAX_HASH_LENGTH; a++) {
@@ -289,18 +292,22 @@ AdjGraph *creatAdj(const char *filename) {
     G->e = 0;
     G->n = 0;
     for (int a = 0; a < MAX_NODE_NUMBER; a++) {
-        G->adj_list[a].first_arc = NULL;
+//        G->adj_list[a].first_arc = NULL;
+        G->adj_list[a].in_degree = G->adj_list[a].out_degree = 0;
     }
 
     while (EOF != fscanf(map_file, "%d,%d,%d\n", &i, &j, &k)) {
         index_i = HashSearch(i, &my_table);
         index_j = HashSearch(j, &my_table);
-        p = (ArcNode *) malloc(sizeof(ArcNode));
-        p->adj_vex = index_j;
+//        p = (ArcNode *) malloc(sizeof(ArcNode));
+//        p->adj_vex = index_j;
         // insert to list
-        p->next_arc = G->adj_list[index_i].first_arc;
-        G->adj_list[index_i].first_arc = p;
+//        p->next_arc = G->adj_list[index_i].first_arc;
+//        G->adj_list[index_i].first_arc = p;
         G->adj_list[index_i].ID = i;
+        G->adj_list[index_i].next_node[G->adj_list[index_i].out_degree] = index_j;
+        G->adj_list[index_i].out_degree++;
+        G->adj_list[index_j].in_degree++;
         // update graph info
         G->e++;
     }
@@ -308,19 +315,19 @@ AdjGraph *creatAdj(const char *filename) {
     return G;
 }
 
-void DFS(VNode * adj_list, int v, const int start, \
+void DFS(VNode * next_node, int v, const int start, \
         int path_length, int *my_path_length, path_info my_path[], unsigned int *temp_path, int visited[]) {
 
-    ArcNode *p; // floating pointer
-    int w;  // temp to store the current node index
+//    ArcNode *p; // floating pointer
+    int w,i=0;  // temp to store the current node index
 
-    p = adj_list[v].first_arc;        // pointer to the edge link list
+//    p = adj_list[v].first_arc;        // pointer to the edge link list
 
-    temp_path[path_length] = adj_list[v].ID;  // write current node to the path
+    temp_path[path_length] = next_node[v].ID;  // write current node to the path
     path_length++;   // increase path length
     visited[v] = 1;
-    while (p != NULL) {
-        w = p->adj_vex; // outbound index number
+    while (i<next_node[v].out_degree) {
+        w = next_node->next_node[i]; // outbound index number
 
         // find a ring
         if (w == start && path_length > 2) {
@@ -343,16 +350,17 @@ void DFS(VNode * adj_list, int v, const int start, \
             my_path[*my_path_length].num = path_length;    // set the path length
             (*my_path_length)++;    // mark the total number of path
             //printf(".");
-            p = p->next_arc;      // next
+//            p = p->next_arc;      // next
+              i++;
             continue;
         }
 
         // TODO: could change temp_path[0] -> start ?
         if (visited[w] == 0 && w > start && path_length < 7) {
-            DFS(adj_list, w, start,
+            DFS(next_node, w, start,
                 path_length, my_path_length, my_path, temp_path, visited);    // recursion
         }
-        p = p->next_arc;      // next
+        i++;      // next
     }
 
     // exit recursion
@@ -392,4 +400,4 @@ void write_path(const char *filename, mixed_path_result result) {
             }
         }
     }
-} 
+}
